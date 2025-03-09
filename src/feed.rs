@@ -18,6 +18,8 @@ use crate::Result;
 
 use extension::ExtensionExt;
 
+use dom_smoothie::{DomSmoothie, DomSmoothieOptions, Config};
+
 pub use self::norm::{NormalizedFeed, NormalizedPost};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -166,14 +168,41 @@ impl Feed {
 
   #[allow(clippy::field_reassign_with_default)]
   pub fn from_html_content(content: &str, url: &Url) -> Result<Self> {
-    let item = Post::from_html_content(content, url)?;
+    let options = DomSmoothieOptions {
+      preserve_styles: false,
+      preserve_scripts: false,
+      preserve_comments: false,
+      preserve_attributes: true,
+      preserve_formatting: true,
+    };
+
+    let config = Config {
+      keep_classes: false,
+      classes_to_preserve: vec![],
+      max_elements_to_parse: 0,
+      disable_json_ld: true,
+      n_top_candidates: 5,
+      char_threshold: 500,
+      readable_min_score: 20.0,
+      readable_min_content_length: 140,
+      candidate_select_mode: dom_smoothie::CandidateSelectMode::DomSmoothie,
+      text_mode: dom_smoothie::TextMode::Formatted,
+    };
+
+    let mut smoothie = DomSmoothie::new_with_config(&options, &config);
+    let article = smoothie.process(content)?;
+
+    let mut item = rss::Item::default();
+    item.title = Some(article.title);
+    item.link = Some(url.to_string());
+    item.description = Some(article.content.to_string());
 
     let mut channel = rss::Channel::default();
-    channel.title = item.title().expect("title should present").to_string();
+    channel.title = item.title.expect("title should present").to_string();
     channel.link = url.to_string();
 
     let mut feed = Feed::Rss(channel);
-    feed.set_posts(vec![item]);
+    feed.set_posts(vec![Post::Rss(item)]);
 
     Ok(feed)
   }
@@ -693,24 +722,36 @@ impl_post_accessors! {
 }
 
 impl Post {
-  #[allow(clippy::field_reassign_with_default)]
-  fn from_html_content(content: &str, url: &Url) -> Result<Self> {
-    // convert any relative urls to absolute urls
-    let mut html = scraper::Html::parse_document(content);
-    convert_relative_url(&mut html, url.as_str());
-    let content = html.html();
-    let mut reader = std::io::Cursor::new(&content);
-    let product = readability::extractor::extract(&mut reader, url)?;
+  pub fn from_html_content(content: &str, url: &Url) -> Result<Self> {
+    let options = DomSmoothieOptions {
+      preserve_styles: false,
+      preserve_scripts: false,
+      preserve_comments: false,
+      preserve_attributes: true,
+      preserve_formatting: true,
+    };
 
-    let content_body = html_body(&content);
+    let config = Config {
+      keep_classes: false,
+      classes_to_preserve: vec![],
+      max_elements_to_parse: 0,
+      disable_json_ld: true,
+      n_top_candidates: 5,
+      char_threshold: 500,
+      readable_min_score: 20.0,
+      readable_min_content_length: 140,
+      candidate_select_mode: dom_smoothie::CandidateSelectMode::DomSmoothie,
+      text_mode: dom_smoothie::TextMode::Formatted,
+    };
+
+    let mut smoothie = DomSmoothie::new_with_config(&options, &config);
+    let article = smoothie.process(content)?;
+
     let mut item = rss::Item::default();
-    item.title = Some(product.title);
-    item.description = Some(content_body);
+    item.title = Some(article.title);
     item.link = Some(url.to_string());
-    item.guid = Some(rss::Guid {
-      value: url.to_string(),
-      ..Default::default()
-    });
+    item.description = Some(article.content.to_string());
+
     Ok(Post::Rss(item))
   }
 }

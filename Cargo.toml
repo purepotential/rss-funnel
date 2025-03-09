@@ -62,7 +62,7 @@ rand = "0.8.5" # for generating session_id
 scraper = "0.19.0"
 ego-tree = "0.6.2"
 # for extracting article content from HTML, used in simplify_html filter
-readability = { version = "0.3.0", default-features = false }
+dom-smoothie = { version = "0.1.0", features = ["formatted"] }
 html5ever = "0.26.0"
 htmlescape = "0.3.1"
 lol_html = "1.2.1"

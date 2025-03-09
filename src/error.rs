@@ -1,4 +1,5 @@
 use http::StatusCode;
+use dom_smoothie::ReadabilityError;
 
 // pub type DateTime = time::OffsetDateTime;
 pub type Result<T, E = Error> = std::result::Result<T, E>;
@@ -87,7 +88,7 @@ pub enum Error {
   Js(#[from] JsError),
 
   #[error("Failed to extract webpage: {0}")]
-  Readability(#[from] readability::error::Error),
+  Readability(#[from] ReadabilityError),
 
   #[error("Config error: {0}")]
   Config(#[from] ConfigError),
